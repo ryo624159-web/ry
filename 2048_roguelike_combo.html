@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>2048 Roguelike Prototype</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#171717;color:#f5f5f5;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;justify-content:center;min-height:100vh}
+.wrap{width:min(96vw,520px);padding:18px 12px 28px}
+h1{font-size:28px;margin:4px 0 14px;text-align:center}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.card{background:#252525;border-radius:12px;padding:9px;text-align:center}
+.label{font-size:11px;color:#aaa}.value{font-size:20px;font-weight:800}
+.enemy{background:#252525;border-radius:14px;padding:12px;margin-bottom:10px}
+.enemyTop{display:flex;justify-content:space-between;font-weight:700}
+.hpbar{height:13px;background:#444;border-radius:99px;overflow:hidden;margin-top:8px}
+.hp{height:100%;background:#e85b5b;width:100%;transition:width .2s}
+.board{background:#8d8274;padding:8px;border-radius:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;touch-action:none}
+.tile{aspect-ratio:1;border-radius:9px;background:#b9b0a5;display:flex;align-items:center;justify-content:center;font-size:clamp(25px,8vw,43px);font-weight:900;color:#333}
+.t2{background:#eee4da}.t4{background:#ede0c8}.t8{background:#f2b179;color:white}.t16{background:#f59563;color:white}.t32{background:#f67c5f;color:white}.t64{background:#f65e3b;color:white}.t128{background:#edcf72;color:white;font-size:clamp(22px,7vw,36px)}.t256{background:#edcc61;color:white;font-size:clamp(22px,7vw,36px)}.t512{background:#edc850;color:white;font-size:clamp(22px,7vw,36px)}.t1024,.t2048,.t4096{background:#e8b93e;color:white;font-size:clamp(19px,6vw,32px)}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px auto 8px;max-width:300px}
+button{border:0;border-radius:11px;padding:12px;background:#333;color:white;font-size:18px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.dir{height:58px;font-size:24px;touch-action:manipulation}
+.restart{display:block;margin:0 auto 10px;background:#292929;color:#bbb;font-size:13px;padding:9px 14px}
+button:active{transform:scale(.97);background:#444}
+.help{text-align:center;color:#aaa;font-size:12px;margin:8px 0}
+.log{background:#202020;border-radius:12px;padding:10px;min-height:42px;font-size:13px;line-height:1.45}
+.overlay{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;padding:20px;z-index:5}
+.modal{width:min(94vw,480px);background:#252525;border-radius:18px;padding:20px;text-align:center}
+.modal h2{margin:0 0 8px}
+.choices{display:grid;gap:9px;margin-top:14px}
+.choice{text-align:left;background:#333;padding:12px;border-radius:12px}
+.choice b{display:block;margin-bottom:3px}.choice small{color:#bbb}
+.primary{background:#e0a23b;color:#171717;margin-top:12px;width:100%}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>2048 ROGUELIKE</h1>
+<div class="stats">
+  <div class="card"><div class="label">PLAYER HP</div><div class="value" id="playerHp">30</div></div>
+  <div class="card"><div class="label">FLOOR</div><div class="value" id="floor">1</div></div>
+  <div class="card"><div class="label">SCORE</div><div class="value" id="score">0</div></div>
+</div>
+
+<div class="stats">
+  <div class="card"><div class="label">COMBO</div><div class="value" id="combo">0</div></div>
+  <div class="card"><div class="label">NEXT COMBO</div><div class="value" id="comboTimer">-</div></div>
+  <div class="card"><div class="label">MULTIPLIER</div><div class="value" id="comboMultiplier">×1.00</div></div>
+</div>
+
+<div class="enemy">
+  <div class="enemyTop"><span id="enemyName">スライム</span><span id="enemyHpText">20 / 20</span></div>
+  <div class="hpbar"><div class="hp" id="enemyHp"></div></div>
+</div>
+
+<div class="board" id="board"></div>
+
+<div class="controls">
+  <div></div><button class="dir" data-dir="up">▲</button><div></div>
+  <button class="dir" data-dir="left">◀</button><button class="dir" data-dir="down">▼</button><button class="dir" data-dir="right">▶</button>
+</div>
+<button class="restart" onclick="location.reload()">↻ 最初からやり直す</button>
+<div class="help">スマホ: 下の矢印ボタン or スワイプ　・　PC: 矢印キー / WASD</div>
+<div class="log" id="log">タイルを動かして合体させよう❤</div>
+</div>
+
+<div class="overlay" id="startOverlay" style="display:flex">
+ <div class="modal">
+  <h2>2048 ROGUELIKE</h2>
+  <div>数字を合体させて敵を倒そう！❤</div>
+  <button class="primary" id="startButton">ゲーム開始</button>
+ </div>
+</div>
+
+<div class="overlay" id="upgradeOverlay">
+ <div class="modal">
+  <h2>LEVEL UP!</h2>
+  <div>能力を1つ選んでね</div>
+  <div class="choices" id="choices"></div>
+ </div>
+</div>
+
+<div class="overlay" id="gameOverOverlay">
+ <div class="modal">
+  <h2>GAME OVER</h2>
+  <div id="finalScore"></div>
+  <button class="primary" onclick="location.reload()">もう一度遊ぶ</button>
+ </div>
+</div>
+
+<script>
+const SIZE=4;
+let board=[], playerHp=30, floor=1, score=0, enemy=null;
+let bonusDamage=0, shield=0, heal=0, comboBonus=0;
+let combo=0, comboDeadline=0, comboTimerId=null;
+const COMBO_BASE_TIME=3000;
+const COMBO_MIN_TIME=700;
+const COMBO_TIME_DECAY=180;
+const COMBO_DAMAGE_STEP=0.15;
+let canMove=false, touchStart=null;
+
+const enemyTypes=[
+ {name:"スライム",hp:20,atk:3},
+ {name:"ゴブリン",hp:28,atk:5},
+ {name:"ゴーレム",hp:45,atk:4},
+ {name:"魔法使い",hp:35,atk:7}
+];
+
+function emptyBoard(){return Array(SIZE*SIZE).fill(0)}
+function addRandom(){
+ const empties=board.map((v,i)=>v===0?i:-1).filter(i=>i>=0);
+ if(!empties.length)return;
+ const i=empties[Math.floor(Math.random()*empties.length)];
+ board[i]=Math.random()<.9?2:4;
+}
+function spawnEnemy(){
+ const t=enemyTypes[Math.min(enemyTypes.length-1,Math.floor((floor-1)/2))];
+ const scale=1+(floor-1)*.22;
+ enemy={name:t.name,hp:Math.round(t.hp*scale),maxHp:Math.round(t.hp*scale),atk:Math.round(t.atk*scale)};
+}
+function render(){
+ const el=document.getElementById("board"); el.innerHTML="";
+ board.forEach(v=>{
+   const d=document.createElement("div"); d.className="tile "+(v?"t"+v:"");
+   d.textContent=v||""; el.appendChild(d);
+ });
+ document.getElementById("playerHp").textContent=playerHp;
+ document.getElementById("floor").textContent=floor;
+ document.getElementById("score").textContent=score;
+ document.getElementById("enemyName").textContent=enemy.name;
+ document.getElementById("enemyHpText").textContent=`${Math.max(0,enemy.hp)} / ${enemy.maxHp}`;
+ document.getElementById("enemyHp").style.width=Math.max(0,enemy.hp/enemy.maxHp*100)+"%";
+  refreshComboUI();
+}
+function log(s){document.getElementById("log").textContent=s}
+
+function comboTimeLimit(){
+  return Math.max(COMBO_MIN_TIME,COMBO_BASE_TIME-Math.max(0,combo-1)*COMBO_TIME_DECAY);
+}
+function comboMultiplier(){
+  return 1+combo*COMBO_DAMAGE_STEP;
+}
+function refreshComboUI(){
+  const c=document.getElementById("combo");
+  const t=document.getElementById("comboTimer");
+  const m=document.getElementById("comboMultiplier");
+  if(c)c.textContent=combo;
+  if(m)m.textContent=`×${comboMultiplier().toFixed(2)}`;
+  if(t)t.textContent=combo>0&&comboDeadline?`${(Math.max(0,comboDeadline-Date.now())/1000).toFixed(1)}s`:"-";
+}
+function startComboTimer(){
+  if(combo<=0)return;
+  if(comboTimerId)clearInterval(comboTimerId);
+  comboTimerId=setInterval(()=>{
+    if(!canMove){refreshComboUI();return;}
+    if(Date.now()>=comboDeadline){
+      combo=Math.max(0,combo-1);
+      if(combo===0){
+        comboDeadline=0;
+        clearInterval(comboTimerId);
+        comboTimerId=null;
+        log("コンボが0になったよ。次の合体でコンボ開始！");
+      }else{
+        comboDeadline=Date.now()+comboTimeLimit();
+        log(`コンボ減衰！ ${combo}コンボに下がったよ。`);
+      }
+    }
+    refreshComboUI();
+  },50);
+  refreshComboUI();
+}
+function registerCombo(){
+  combo++;
+  comboDeadline=Date.now()+comboTimeLimit();
+  startComboTimer();
+  refreshComboUI();
+}
+
+function move(dir){
+ if(!canMove)return;
+ const before=board.slice();
+ let gained=[];
+ let moved=false;
+ for(let line=0;line<4;line++){
+   let idx=[];
+   for(let k=0;k<4;k++){
+     let r,c;
+     if(dir==="left"){r=line;c=k}
+     if(dir==="right"){r=line;c=3-k}
+     if(dir==="up"){r=k;c=line}
+     if(dir==="down"){r=3-k;c=line}
+     idx.push(r*4+c);
+   }
+   let vals=idx.map(i=>board[i]).filter(v=>v);
+   if(dir==="right"||dir==="down") vals=vals.reverse();
+   let out=[];
+   for(let k=0;k<vals.length;k++){
+     if(k+1<vals.length && vals[k]===vals[k+1]){
+       const nv=vals[k]*2; out.push(nv); gained.push(nv); k++;
+     } else out.push(vals[k]);
+   }
+   while(out.length<4)out.push(0);
+   if(dir==="right"||dir==="down")out.reverse();
+   idx.forEach((bi,k)=>board[bi]=out[k]);
+ }
+ moved=board.some((v,i)=>v!==before[i]);
+ if(!moved)return;
+ addRandom();
+ let damage=0;
+ gained.forEach(v=>damage+=v);
+ if(gained.length>0){
+   registerCombo();
+    damage=Math.round(damage*(1+comboBonus*.15)*comboMultiplier())+bonusDamage;
+   enemy.hp-=damage;
+   score+=damage;
+   log(`合体攻撃！ ${damage} ダメージ❤ ${combo}コンボ！`);
+ } else log("移動したよ。次の一手を考えてね❤");
+ if(enemy.hp<=0){winBattle();return}
+ enemyAttack();
+ render();
+ if(isGameOver())gameOver();
+}
+function enemyAttack(){
+ let dmg=Math.max(0,enemy.atk-shield);
+ shield=0;
+ playerHp-=dmg;
+ if(dmg>0)log(`敵の攻撃！ ${dmg} ダメージ。`)
+ if(heal){playerHp=Math.min(30+heal*5,playerHp+heal)}
+}
+function winBattle(){
+ score+=enemy.maxHp;
+ floor++;
+ if(heal)playerHp=Math.min(30+heal*5,playerHp+heal);
+ spawnEnemy();
+ canMove=false;
+ showUpgrade();
+ render();
+}
+const upgrades=[
+ ["強化合体","合体攻撃のダメージ +25","damage"],
+ ["鉄壁","次の敵攻撃を5軽減","shield"],
+ ["再生","毎ターンHPを2回復","heal"],
+ ["連鎖強化","1ターンの合体数に応じて攻撃力UP","combo"]
+];
+function showUpgrade(){
+ const box=document.getElementById("choices");box.innerHTML="";
+ const picks=[...upgrades].sort(()=>Math.random()-.5).slice(0,3);
+ picks.forEach(([n,d,id])=>{
+   const b=document.createElement("button");b.className="choice";
+   b.innerHTML=`<b>${n}</b><small>${d}</small>`;
+   b.onclick=()=>{if(id==="damage")bonusDamage+=2;if(id==="shield")shield+=5;if(id==="heal")heal+=2;if(id==="combo")comboBonus++;
+     document.getElementById("upgradeOverlay").style.display="none";canMove=true;log(`${n}を獲得！❤`);
+   };
+   box.appendChild(b);
+ });
+ document.getElementById("upgradeOverlay").style.display="flex";
+}
+function isGameOver(){
+ return playerHp<=0 || !canMoves();
+}
+function canMoves(){
+ if(board.some(v=>!v))return true;
+ for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+  const i=r*4+c;
+  if(c<3&&board[i]===board[i+1])return true;
+  if(r<3&&board[i]===board[i+4])return true;
+ }
+ return false;
+}
+function gameOver(){
+  if(comboTimerId){clearInterval(comboTimerId);comboTimerId=null;}
+ document.getElementById("finalScore").textContent=`到達フロア: ${floor}　スコア: ${score}`;
+ document.getElementById("gameOverOverlay").style.display="flex";
+}
+document.querySelectorAll("[data-dir]").forEach(b=>b.onclick=()=>move(b.dataset.dir));
+document.addEventListener("keydown",e=>{
+ const m={ArrowUp:"up",w:"up",W:"up",ArrowDown:"down",s:"down",S:"down",ArrowLeft:"left",a:"left",A:"left",ArrowRight:"right",d:"right",D:"right"};
+ if(m[e.key]){e.preventDefault();move(m[e.key])}
+});
+document.addEventListener("touchmove",e=>{ if(touchStart) e.preventDefault(); },{passive:false});
+const boardEl=document.getElementById("board");
+boardEl.addEventListener("touchstart",e=>{touchStart=e.touches[0]},{passive:true});
+boardEl.addEventListener("touchend",e=>{
+ if(!touchStart)return;
+ const t=e.changedTouches[0],dx=t.clientX-touchStart.clientX,dy=t.clientY-touchStart.clientY;
+ touchStart=null;
+ if(Math.max(Math.abs(dx),Math.abs(dy))<25)return;
+ move(Math.abs(dx)>Math.abs(dy)?(dx>0?"right":"left"):(dy>0?"down":"up"));
+},{passive:true});
+
+board=emptyBoard();addRandom();addRandom();spawnEnemy();render();refreshComboUI();
+document.getElementById("startButton").addEventListener("click",()=>{
+  document.getElementById("startOverlay").style.display="none";
+  canMove=true;
+  log("ゲーム開始！矢印ボタンでタイルを動かしてね❤");
+});
+</script>
+</body>
+</html>
