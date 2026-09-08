@@ -256,7 +256,7 @@ const LANG={
     'コンボ延長':['Combo Extension','Greatly increase the Combo timer with each level.'],
     '基礎強化':['Base Attack Up','Multiply current Base Attack by 1.2.'],
     'コンボ強化':['Combo Up','Increase the amount added to the Combo multiplier by 0.03.'],
-    '憤怒':['Anger','Multiply Base Attack by the current Combo multiplier, then reset the Combo timer, Combo multiplier, and Combo count to their initial values. Magician and Greed effects are also reset.']
+    '憤怒':['Anger','Multiply Base Attack by the current Combo multiplier. Reset the Combo timer, Combo multiplier, and Combo count to their initial values.']
   },
   enemies:{
     'スライム':'Slime','オーガ':'Ogre','ゴーレム':'Golem','魔術師':'Mage','ハンター':'Hunter'
@@ -374,7 +374,7 @@ const defs=[
 ['コンボ延長','Lvごとにコンボ受付時間大幅増加','comboTime','level'],
 ['基礎強化','現在の基礎攻撃力を1.2倍。','baseUp','level'],
 ['コンボ強化','コンボ倍率の上昇量+0.03。','comboUp','level'],
-['憤怒','現在のコンボ倍率を基礎攻撃力に掛け、その後コンボ受付時間・コンボ倍率・コンボ数を初期値に戻す。マジシャンと強欲の効果もリセットする。','anger','repeat']
+['憤怒','現在のコンボ倍率を基礎攻撃力に掛ける。コンボ受付時間・コンボ倍率・コンボ数を初期値に戻す。','anger','repeat']
 ];
 
 function $(x){return document.getElementById(x)}
@@ -636,7 +636,8 @@ function timeLimit(){
 }
 
 function mult(){
-  let m=(1+Math.max(0,combo-1)*(.08+skills.comboUp*.03)+heroBonus)*greedMultiplier;
+  let comboGain=angerComboMode?.03:(.08+skills.comboUp*.03);
+  let m=(1+Math.max(0,combo-1)*comboGain+heroBonus)*greedMultiplier;
   if(skills.magician)m*=2;
   return m
 }
@@ -1422,6 +1423,7 @@ function apply(id){
 
   if(id==='anger'){
     const currentMultiplier=mult();
+    angerComboMode=true;
     baseAttack*=currentMultiplier;
 
     // 憤怒は現在のコンボ倍率を攻撃力へ変換してから、
