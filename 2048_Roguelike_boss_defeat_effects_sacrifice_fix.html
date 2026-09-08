@@ -1,0 +1,1472 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="description" content="2048 ROGUELIKE - Skills">
+<style>body{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}
+/* ===== 敵撃破スペシャル演出 ===== */
+.boardShell.enemyDefeatBoardFlash::before{
+  content:"";position:absolute;inset:-8px;border-radius:20px;pointer-events:none;z-index:20;
+  background:rgba(255,211,61,.0);
+  box-shadow:0 0 0 0 rgba(255,210,61,0);
+  animation:boardVictoryFlash .72s ease-out forwards;
+}
+.boardShell.enemyDefeatBoardFlash::after{
+  content:"";position:absolute;left:50%;top:50%;width:24px;height:24px;border-radius:50%;
+  pointer-events:none;z-index:21;border:4px solid rgba(255,235,120,.95);
+  box-shadow:0 0 12px 4px rgba(255,210,61,.9),0 0 34px 12px rgba(255,150,30,.55);
+  transform:translate(-50%,-50%) scale(.2);
+  animation:defeatShockwave .72s cubic-bezier(.12,.7,.2,1) forwards;
+}
+.enemyDefeatFlash{
+  position:relative;
+  animation:enemyDefeatFlashStrong .62s cubic-bezier(.15,.8,.2,1),enemyDefeatPulse .62s ease-out;
+}
+.enemyDefeatFlash .hp{animation:hpExplodeStrong .62s cubic-bezier(.1,.7,.2,1)}
+.enemyDefeatFlash::after{
+  content:"";position:absolute;left:50%;top:58%;width:18px;height:18px;border-radius:50%;
+  pointer-events:none;background:rgba(255,221,100,.95);
+  box-shadow:0 0 12px 5px rgba(255,183,0,.9),0 0 30px 12px rgba(255,90,0,.5);
+  transform:translate(-50%,-50%) scale(.2);
+  animation:defeatBurst .62s ease-out forwards;
+}
+@keyframes boardVictoryFlash{
+  0%{opacity:0;background:rgba(255,255,255,0);box-shadow:0 0 0 0 rgba(255,210,61,0)}
+  12%{opacity:1;background:rgba(255,245,190,.55);box-shadow:0 0 28px 8px rgba(255,210,61,.9),inset 0 0 25px 8px rgba(255,255,255,.55)}
+  28%{opacity:1;background:rgba(255,255,255,.18);box-shadow:0 0 55px 16px rgba(255,185,40,.65),inset 0 0 45px 12px rgba(255,255,255,.3)}
+  100%{opacity:0;background:rgba(255,255,255,0);box-shadow:0 0 0 0 rgba(255,210,61,0)}
+}
+@keyframes defeatShockwave{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(15);border-width:1px}
+}
+@keyframes enemyDefeatFlashStrong{
+  0%{filter:brightness(1) saturate(1)}
+  18%{filter:brightness(2.8) saturate(1.5)}
+  32%{filter:brightness(1.25) saturate(1)}
+  48%{filter:brightness(2.1) saturate(1.3)}
+  100%{filter:brightness(1) saturate(1)}
+}
+@keyframes enemyDefeatPulse{
+  0%{transform:scale(1)}18%{transform:scale(1.035)}34%{transform:scale(.985)}52%{transform:scale(1.018)}100%{transform:scale(1)}
+}
+@keyframes hpExplodeStrong{
+  0%{filter:brightness(1);box-shadow:0 0 0 0 transparent}
+  20%{filter:brightness(3);box-shadow:0 0 22px 8px #ffd23f,0 0 50px 18px rgba(255,90,0,.6)}
+  42%{filter:brightness(1.8);box-shadow:0 0 35px 12px #ff9f1c,0 0 70px 25px rgba(255,50,0,.35)}
+  100%{filter:brightness(1);box-shadow:0 0 0 0 transparent}
+}
+@keyframes defeatBurst{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(.2)}
+  35%{opacity:1;transform:translate(-50%,-50%) scale(2.8)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(7)}
+}
+.defeatParticle{
+  position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:50%;
+  pointer-events:none;z-index:30;background:#ffd23f;box-shadow:0 0 8px 2px #ffd23f;
+  animation:defeatParticleFly .7s cubic-bezier(.1,.7,.2,1) forwards;
+}
+@keyframes defeatParticleFly{
+  0%{opacity:1;transform:translate(-50%,-50%) rotate(var(--angle)) translateX(8px) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--angle)) translateX(var(--distance)) scale(.2)}
+}
+
+</style>
+<title>2048 ROGUELIKE - Skills</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0d1117;color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;justify-content:center}
+button{font:inherit}
+.wrap{width:min(96vw,520px);padding:16px 12px 30px;position:relative}
+h1{text-align:center;margin:0 0 10px;font-size:30px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:8px}
+.card,.panel{background:#20252c;border:1px solid #303640;border-radius:14px;padding:9px;text-align:center}
+.label{font-size:10px;color:#9ba3ad}
+.value{font-size:20px;font-weight:900}
+.enemy{text-align:left;margin-bottom:8px}
+.enemyTop{display:flex;justify-content:space-between;font-weight:900}
+.hpbar,.playerHpBar,.comboBar{height:13px;background:#45484c;border-radius:99px;overflow:hidden;margin-top:7px}
+.hp{height:100%;background:#e64b4b;width:100%}
+.playerPanel{margin:8px 0}
+.playerTop{display:flex;justify-content:space-between;font-weight:900}
+.playerHpFill{height:100%;background:#35c96a;width:100%}
+.comboPanel{text-align:left;margin-bottom:8px;position:relative}
+.comboHeader{display:flex;justify-content:space-between;align-items:center;font-weight:900}
+.comboNum{font-size:25px}
+.mult{color:#ffbf3f}
+.comboFill{height:100%;width:0;background:#ff8a2d;transition:width .05s}
+.boardShell{position:relative}
+.damageStage{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;pointer-events:none;z-index:5;overflow:visible}
+.playerDamageStage{height:58px;position:relative;display:flex;justify-content:center;align-items:center;pointer-events:none;overflow:visible}
+.board{background:#8d8174;padding:8px;border-radius:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;touch-action:none;user-select:none}
+.tile{aspect-ratio:1;border-radius:10px;background:#b8aea2;display:flex;align-items:center;justify-content:center;font-size:clamp(25px,8vw,42px);font-weight:950;color:#333}
+.t2{background:#eee4da}.t4{background:#ede0c8}.t8{background:#f2b179;color:white}.t16{background:#f59563;color:white}.t32{background:#f67c5f;color:white}.t64{background:#f65e3b;color:white}.t128{background:#f0a202;color:#fff;font-size:clamp(19px,6vw,32px)}.t256{background:#e76f51;color:#fff;font-size:clamp(17px,5.5vw,29px)}.t512{background:#2a9d8f;color:#fff;font-size:clamp(16px,5vw,27px)}.t1024{background:#457b9d;color:#fff;font-size:clamp(15px,4.7vw,25px)}.t2048{background:#7b2cbf;color:#fff;font-size:clamp(14px,4.4vw,24px)}.t4096{background:#4361ee;color:#fff;font-size:clamp(14px,4.4vw,24px)}
+.t8192{background:#c1126b;color:#fff;font-size:clamp(14px,4.4vw,29px)}
+.t16384{background:#34495e;color:#fff;font-size:clamp(13px,4.1vw,29px)}
+.t32768{background:#386641;color:#fff;font-size:clamp(13px,4.1vw,27px)}
+.t65536{background:#bc4749;color:#fff;font-size:clamp(13px,4.1vw,27px)}
+.t131072{background:#ff6f00;color:#fff;font-size:clamp(13px,4.1vw,25px)}
+.t262144{background:#8338ec;color:#fff;font-size:clamp(13px,4.1vw,25px)}
+.t524288{background:#3a86ff;color:#fff;font-size:clamp(13px,4.1vw,25px)}
+.t1048576{background:#06d6a0;color:#fff;font-size:clamp(13px,4.1vw,24px)}
+.t2097152{background:#ffd166;color:#222;font-size:clamp(13px,4.1vw,24px)}
+.t4194304{background:#ef476f;color:#fff;font-size:clamp(13px,4.1vw,24px)}
+.t8388608{background:#073b4c;color:#fff;font-size:clamp(13px,4.1vw,22px)}
+.t16777216{background:#7209b7;color:#fff;font-size:clamp(13px,4.1vw,22px)}
+.mageTarget{box-shadow:inset 0 0 0 4px #72b7ff,0 0 12px #72b7ff;animation:mageGlow .8s ease-in-out infinite alternate}
+.hunterTarget{box-shadow:inset 0 0 0 4px #ffb84d,0 0 12px #ffb84d;animation:hunterGlow .8s ease-in-out infinite alternate}.hunterTarget{position:relative}.hunterTimer{position:absolute;top:5px;left:50%;transform:translateX(-50%);z-index:3;font-size:20px;line-height:1;padding:2px 6px;border-radius:8px;background:#111d;color:#fff;font-weight:900;letter-spacing:.2px;text-shadow:0 1px 2px #000;pointer-events:none;white-space:nowrap}
+@keyframes mageGlow{from{filter:brightness(1)}to{filter:brightness(1.45)}}
+@keyframes hunterGlow{from{filter:brightness(1)}to{filter:brightness(1.5)}}
+.pauseBtn{position:absolute;top:8px;right:12px;z-index:3;width:auto;padding:7px 11px;border:1px solid #4d8cff;border-radius:10px;background:#243b5c;color:#fff;font-weight:900;font-size:13px}
+.restart{display:block;margin:10px auto 8px;background:#242a31;color:#ddd;border:1px solid #3a414b;border-radius:10px;padding:8px 14px}
+.help,.log{font-size:12px;color:#9ba3ad;text-align:center;margin:7px 0}
+.log{background:#171b20;border-radius:10px;padding:9px;color:#ddd;text-align:left;min-height:40px}
+.skills{text-align:left}
+.skillTitle{font-size:11px;color:#9ba3ad;margin-bottom:6px}
+.skillList{display:flex;flex-wrap:wrap;gap:5px}
+.badge{padding:4px 7px;border-radius:7px;font-size:10px;font-weight:800}
+.blue{background:#27477d}.green{background:#285b3b}.gold{background:#66501f}
+.overlay{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;padding:18px;z-index:10}
+.modal{width:min(94vw,490px);background:#252b32;border:1px solid #414954;border-radius:18px;padding:18px}
+.modal h2{text-align:center;margin:0 0 7px}
+.choices{display:grid;gap:8px;margin-top:12px}
+.choice{background:#30363e;color:#fff;border:1px solid #48515c;border-radius:11px;padding:12px;text-align:left}
+.choice b{display:block;font-size:16px}
+.choice small{display:block;color:#c2c7ce;margin-top:3px;line-height:1.35}
+.choice.blueChoice{border-left:5px solid #4d8cff}.choice.greenChoice{border-left:5px solid #43c96b}.choice.goldChoice{border-left:5px solid #e2b63d}
+.primary{width:100%;padding:12px;border:0;border-radius:11px;background:#e7a735;color:#15191e;font-weight:900;margin-top:10px}
+.comboBar.comboBarShake{animation:comboBarShake .22s ease-out}
+.dmg{position:absolute;left:50%;top:50%;z-index:2;font-size:38px;font-weight:1000;background:#1b263b;color:#fff;padding:4px 14px;border-radius:18px;border:3px solid #ffd23f;animation:pop .55s ease-out forwards;box-shadow:0 4px 18px #000b,0 0 10px #ffd23f88;white-space:nowrap;width:max-content;max-width:none}
+.pdmg{background:#e84545;border-color:#ff9a9a}
+@keyframes comboBarShake{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+@keyframes pop{0%{opacity:0;transform:scale(.5) translateY(12px)}20%{opacity:1;transform:scale(1.1)}100%{opacity:0;transform:scale(.95) translateY(-20px)}}
+.wrap.shake{animation:shake .22s ease-out}
+@keyframes shake{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+.dmg{font-size:48px;min-width:110px;text-align:center;padding:7px 18px;text-shadow:0 2px 4px #000;box-shadow:0 4px 18px #0008}
+.enemyDefeatFlash{animation:enemyDefeatFlash .34s ease-out}.enemyDefeatFlash .hp{animation:hpExplode .34s ease-out}
+@keyframes enemyDefeatFlash{0%{filter:brightness(1)}35%{filter:brightness(1.8)}70%{filter:brightness(1.25)}100%{filter:brightness(1)}}
+@keyframes hpExplode{0%{filter:brightness(1);box-shadow:none}35%{filter:brightness(2.5);box-shadow:0 0 18px 7px #ffb000}100%{filter:brightness(1);box-shadow:0 0 0 0 transparent}}
+</style>
+<style id="language-switcher-style">
+#langBtn{
+position:fixed;top:12px;left:12px;z-index:99999;
+padding:7px 12px;border:1px solid #888;border-radius:8px;
+background:#fff;color:#222;font-size:13px;font-weight:700;cursor:pointer;
+box-shadow:0 2px 6px rgba(0,0,0,.12)
+}
+</style></head>
+<body>
+<button id="langBtn" type="button">English</button>
+<div class="wrap">
+<button class="pauseBtn" id="pauseBtn">⏸ 一時停止</button>
+<h1>2048 ROGUELIKE</h1>
+<div class="stats"><div class="card"><div class="label">FLOOR</div><div class="value" id="floor">1</div></div><div class="card"><div class="label">BASE ATK</div><div class="value" id="atk">5</div></div><div class="card"><div class="label">SCORE</div><div class="value" id="score">0</div></div></div>
+<div class="panel enemy"><div class="enemyTop"><span id="enemyName"></span><span id="enemyText"></span></div><div class="hpbar"><div class="hp" id="enemyHp"></div></div></div>
+<div class="panel comboPanel"><div class="comboHeader"><span>COMBO <span class="comboNum" id="combo">0</span></span><span class="mult" id="mult">×1.00</span><span id="timer">-</span></div><div class="comboBar"><div class="comboFill" id="comboFill"></div></div></div>
+<div class="boardShell"><div class="board" id="board"></div><div class="damageStage" id="damageStage"></div></div>
+<div class="playerDamageStage" id="playerDamageStage"></div>
+<div class="panel playerPanel"><div class="playerTop"><span>PLAYER HP</span><span id="playerHp"></span></div><div class="playerHpBar"><div class="playerHpFill" id="playerHpFill"></div></div></div>
+<div class="panel skills"><div class="skillTitle">SKILLS / Up to 5 cards + one-time skills</div><div class="skillList" id="skillList"></div></div>
+<div class="log" id="log">Merge numbers to attack!</div>
+<button class="restart" id="restart">↻ Restart</button>
+<div class="help">Mobile: Swipe　PC: Arrow keys / WASD / Space to pause</div>
+</div>
+
+<div class="overlay" id="start"><div class="modal"><h2>2048 ROGUELIKE</h2><div>数字を合体させて敵を倒そう。</div><button class="primary" id="startBtn">ゲーム開始</button></div></div>
+<div class="overlay" id="upgrade"><div class="modal"><h2>LEVEL UP!</h2><div id="floorRule">3枚から1つ選択</div><div class="choices" id="choices"></div></div></div>
+<div class="overlay" id="discard"><div class="modal"><h2>カード枠が満杯</h2><div>新しいカードを得るため、捨てるカードを1枚選んでください。</div><div class="choices" id="discardChoices"></div><button class="primary" id="discardBack">← 戻る</button></div></div>
+<div class="overlay" id="gameover"><div class="modal"><h2>GAME OVER</h2><div id="final"></div><button class="primary" onclick="location.reload()">もう一度遊ぶ</button></div></div>
+
+<script>
+'use strict';
+
+const S=4;
+let board=[],playerHp=40,maxHp=40,floor=1,score=0,enemy=null,baseAttack=5,combo=0,heroBonus=0,greedMultiplier=1,embryoTimeBonus=0,deadline=0,timerId=null,canMove=false,touch=null,previousMax=0,minSpawnValue=0,audioCtx=null,enemyTurn=0,enemyCharge=false,mageTarget=-1,hunterTarget=-1,hunterTargetValue=0,emperorBonus=0,freezeStarted=0,spawnCount=0,paused=false,greedRecord=0,turnNewTiles=[],greedUroborosUsed=false;
+
+let skills={regen:0,maxHp:0,comboTime:0,baseUp:0,comboUp:0,sacrifice:false,magician:false,ouroboros:false,mushroom:false,devil:false,chaos:false,weakling:false,berserker:false,chainCannon:false,overreaction:false,multiplication:false,dependence:false,embryo:false,blessing:false,backwater:false,emperor:false,grudge:false,hunger:false,mummy:false,greed:false,lust:false,accumulation:0,alchemist:0,reversal:0,gluttony:0,reaper:0,gambler:0,bomb:0};
+
+let levelMaxHpFactor=1,levelBaseUpFactor=1,frozenRemaining=0;
+let currentLang='ja';
+
+const LANG={
+  skills:{
+    '生贄':['Sacrifice','When you take lethal damage, sacrifice one tile with the highest value on the board to revive.'],
+    'マジシャン':['Magician','Double the Combo multiplier. Reduce the Combo timer by 60%.'],
+    '狂戦士':['Berserker','Deal 2× damage when HP is 75% or lower.'],
+    '連鎖砲':['Chain Cannon','3 simultaneous merges add 1 extra attack. 5 simultaneous merges add another extra attack.'],
+    '過剰反応':['Overreaction','If a tile created this turn is equal to or greater than the previous turn’s maximum value, deal 3× damage.'],
+    '増殖':['Multiplication','When an enemy is defeated, generate 3 tiles with the minimum value on the board in random empty spaces.'],
+    '依存':['Dependence','During a Combo, Base Attack increases by 6 each turn. The Combo timer is slightly reduced.'],
+    '胚':['Embryo','Increase Combo by the number of merges made in one turn. The Combo timer increases whenever a skill activates.'],
+    '呪福':['Cursed Blessing','Lose 1/16 of Max HP each turn and increase Base Attack by 2%.'],
+    '背水':['Last Stand','Start each battle with half HP. Damage dealt is multiplied by Max HP ÷ Current HP ÷ 2.'],
+    '帝王':['Emperor','Add the updated maximum tile value on the board to Base Attack whenever the maximum increases.'],
+    '恨み':['Grudge','Increase Base Attack by 1% whenever you take damage.'],
+    '空腹':['Hunger','Increase the damage multiplier by 0.25× for each empty space.'],
+    'ミイラ':['Mummy','Deal 2× damage. Tiles are generated only when a merge occurs. If no merge is possible, generate a tile with the minimum value on the board.'],
+    '強欲':['Greed','When acquired, destroy tiles exceeding the maximum tile value at the time of acquisition and multiply the Combo multiplier by 1.1.'],
+    '蓄積':['Accumulation','Increase Base Attack by 1% on turns when you do not attack.'],
+    'ギャンブラー':['Gambler','Damage dealt is either doubled or halved. The higher the Combo, the greater the chance of doubling.'],
+    '色眼鏡':['Colored Glasses','Damage taken from enemies is always half of Max HP, rounded up.'],
+    '色欲':['Lust','Double 3 randomly selected tiles, then randomly remove 1 tile from the board.'],
+    '抽出':['Extraction','Normal tile generation occurs only once every 2 turns, but generated tile values are multiplied by 4. Greed’s threshold value is also multiplied by 4.'],
+    'ウロボロス':['Ouroboros','Destroy all tiles with the current maximum and minimum values. Afterwards, tiles with values at or below the destroyed minimum can no longer appear.'],
+    'キノコ':['Mushroom','Double all tiles with the current minimum value.'],
+    '悪魔の契約':['Devil’s Contract','Double every tile on the board and reduce one Blue Level-Up skill to Lv0.'],
+    '混沌':['Chaos','For the next battle only, newly generated tiles use one of the values already on the board. 2 tiles appear and 1 tile disappears each turn.'],
+    '弱者':['Weakling','Halve Max HP and add the lost Max HP to Base Attack.'],
+    '錬金術師':['Alchemist','When acquired, destroy all tiles with the minimum value and add their total value to Base Attack.'],
+    '反転':['Reversal','When acquired, swap the maximum and minimum tile values on the board.'],
+    '暴食':['Gluttony','When acquired, destroy one tile with the maximum value and add 1.2× its value to Base Attack.'],
+    '死神':['Reaper','Halve the enemy’s HP and double the enemy’s Attack.'],
+    '爆弾':['Bomb','When acquired, destroy all tiles except one tile with the maximum value. Add twice the total value of the destroyed tiles to Base Attack.'],
+    '勇者':['Hero','Take 1.5× damage. Increase the Combo multiplier by 0.02 each turn.'],
+    '洗浄':['Cleanse','Randomly destroy 2 minimum-value tiles and add the sum of their values to Combo.'],
+    '再生':['Regeneration','At Lv1, recover 2 HP each turn. The amount healed doubles with each level.'],
+    '生命力強化':['Vitality','Double Max HP each time this skill is acquired.'],
+    'コンボ延長':['Combo Extension','Greatly increase the Combo timer with each level.'],
+    '基礎強化':['Base Attack Up','Multiply current Base Attack by 1.2.'],
+    'コンボ強化':['Combo Up','Increase the amount added to the Combo multiplier by 0.05.']
+  },
+  enemies:{
+    'スライム':'Slime','オーガ':'Ogre','ゴーレム':'Golem','魔術師':'Mage','ハンター':'Hunter'
+  },
+  ui:{
+    pause:'Pause',resume:'Resume',paused:'Paused',resumed:'Game resumed!',
+    start:'Start Game',restart:'Restart',back:'← Back',playAgain:'Play Again',
+    noSkill:'No skill was acquired this time!',skip:'Skip',
+    startHelp:'Merge numbers to defeat the enemy.',
+    help:'Mobile: Swipe　PC: Arrow keys / WASD / Space to pause',
+    skills:'SKILLS / Up to 5 cards + one-time skills',
+    odd:'Odd Floor: Cards + repeatable skills',
+    even:'Even Floor: Level-up skills only',
+    choose:'Choose 1 of 3',
+    full:'Card Slots Full',
+    discardHelp:'Choose one card to discard to make room for a new card.',
+    none:'None',
+    floorReached:'Floor Reached',
+    score:'Score'
+  }
+};
+
+function skillName(s){return currentLang==='en'&&LANG.skills[s]?LANG.skills[s][0]:s}
+function skillDesc(s){return currentLang==='en'&&LANG.skills[s]?LANG.skills[s][1]:defs.find(x=>x[0]===s)?.[1]||''}
+function enemyDisplayName(n){return currentLang==='en'?(LANG.enemies[n]||n):n}
+function setLog(textJa,textEn){
+  $('log').textContent=currentLang==='en'?(textEn??textJa):textJa;
+}
+function setLanguage(lang){
+  currentLang=lang==='en'?'en':'ja';
+  document.documentElement.lang=currentLang;
+  $('langBtn').textContent=currentLang==='ja'?'English':'日本語';
+  $('pauseBtn').textContent=paused?(currentLang==='en'?'▶ Resume':'▶ 再開'):(currentLang==='en'?'⏸ Pause':'⏸ 一時停止');
+
+  document.querySelector('#start .modal > div').textContent=currentLang==='en'?LANG.ui.startHelp:'数字を合体させて敵を倒そう。';
+  $('startBtn').textContent=currentLang==='en'?LANG.ui.start:'ゲーム開始';
+  $('discard .modal h2').textContent=currentLang==='en'?LANG.ui.full:'カード枠が満杯';
+  document.querySelector('#discard .modal > div').textContent=currentLang==='en'?LANG.ui.discardHelp:'新しいカードを得るため、捨てるカードを1枚選んでください。';
+  $('discardBack').textContent=currentLang==='en'?LANG.ui.back:'← 戻る';
+  $('gameover .modal button').textContent=currentLang==='en'?LANG.ui.playAgain:'もう一度遊ぶ';
+  document.querySelector('.skillTitle').textContent=currentLang==='en'?LANG.ui.skills:'SKILLS / カード最大5枚＋使い切りスキル';
+  document.querySelector('.help').textContent=currentLang==='en'?LANG.ui.help:'スマホ: スワイプ　PC: 矢印キー・WASD / Spaceで一時停止';
+
+  const labels=document.querySelectorAll('.stats .label');
+  if(labels.length>=3){
+    labels[0].textContent='FLOOR';
+    labels[1].textContent='BASE ATK';
+    labels[2].textContent='SCORE';
+  }
+  document.querySelector('.playerTop span').textContent='PLAYER HP';
+  document.querySelector('.comboHeader > span:first-child').childNodes[0].nodeValue='COMBO ';
+
+  renderSkills();
+  if($('upgrade').style.display==='flex') showUpgrade();
+  if($('discard').style.display==='flex'){
+    // Rebuild discard choices in the selected language.
+    const box=$('discardChoices');
+    box.querySelectorAll('.choice').forEach((b)=>{
+      const jp=defs.find(x=>x[0]===b.dataset.skill);
+      if(jp){
+        b.querySelector('b').textContent=skillName(jp[0]);
+        b.querySelector('small').textContent=skillDesc(jp[0]);
+      }
+    });
+  }
+  if(currentLang==='en'){
+    if($('log').textContent==='数字を合体させて攻撃！') setLog(LANG.ui.startHelp,LANG.ui.startHelp);
+  }
+}
+
+
+const enemies=[
+{name:'スライム',atk:3,type:'slime',desc:'3ターンごとに回復し、空きマスへ分裂する。'},
+{name:'オーガ',atk:5,type:'ogre',desc:'力を溜め、次の攻撃を2倍にする。'},
+{name:'ゴーレム',atk:4,type:'golem',desc:'120÷コンボ数%のダメージを軽減（100%を上限）。'},
+{name:'魔術師',atk:7,type:'mage',desc:'2ターンごとに盤面のタイルを変化させる。'},
+{name:'ハンター',atk:6,type:'hunter',desc:'狙いを定めてから5ターン待ち、対象が変化していなければ最大値タイルを奪う。'}
+];
+
+const defs=[
+['生贄','致死ダメージを受けたとき、盤面の最大値のタイルを1つを生贄にして復活。','sacrifice','card'],
+['マジシャン','コンボ倍率2倍。コンボ受付時間60%減少。','magician','repeat'],
+['狂戦士','HPが75%以下なら与ダメージ2倍。','berserker','card'],
+['連鎖砲','同時に3合体で攻撃を追加1回、5合体でさらに追加1回攻撃。','chainCannon','card'],
+['過剰反応','そのターン生まれた数字に前ターンの最大値以上があればダメージ3倍。','overreaction','card'],
+['増殖','敵撃破時、最小値のタイルを3つランダムな空きマスに生成。','multiplication','card'],
+['依存','コンボ中、毎ターン基礎攻撃力+6。コンボ受付時間微減。','dependence','card'],
+['胚','1ターンの合体数だけコンボ増加。スキルが発動するたびコンボ受付時間増加。','embryo','card'],
+['呪福','毎ターンHPを最大HPの1/16失い、基礎攻撃力2%上昇。','blessing','card'],
+['背水','戦闘開始時、HPを半分にする。与えるダメージを最大HP÷現在HP÷2倍する。','backwater','card'],
+['帝王','盤面の最大値を基礎攻撃力に加算する。','emperor','card'],
+['恨み','ダメージを受けるたび基礎攻撃力1%上昇。','grudge','card'],
+['空腹','空きマス1つにつき与ダメージ倍率+0.25倍。','hunger','card'],
+['ミイラ','与えるダメージ2倍。合体したときにしかタイルが生成されなくなる。合体できないターンは盤面の最小タイルを生成。','mummy','card'],
+['強欲','習得時の最大タイルを超えたタイルを消し、コンボ倍率を1.1倍する。','greed','card'],
+['蓄積','攻撃しなかったターン、基礎攻撃力1%上昇。','accumulation','card'],
+['ギャンブラー','与えるダメージが倍か半分になる。高コンボほど2倍の確率が増える','gambler','card'],
+['色眼鏡','敵から受けるダメージを常に最大HPの二分の一にする（切り上げ）。','colored','card'],
+['色欲','ランダムなタイルを3つ選んで2倍にし、その後、盤面のタイルからランダムに1つ消す。','lust','repeat'],
+['抽出','通常のタイル生成は2回に1回になるが、出るタイルの値が4倍になる。強欲の基準値も4倍。','extraction','card'],
+['ウロボロス','現在の最大と最小のタイルを全破壊。以後、破壊した最小以下のタイルは出現しない。','ouroboros','repeat'],
+['キノコ','現在の最小のタイルを全て2倍。','mushroom','repeat'],
+['悪魔の契約','盤面にある全てのタイルを2倍にし、青色のレベルアップスキルを1つLv0にする。','devil','repeat'],
+['混沌','次の戦闘のみ、新タイルは盤面のタイルのどれかになり、毎ターン2個出現＋1個消滅。','chaos','repeat'],
+['弱者','最大HPを半分にし、減った最大HP分を基礎攻撃力に加える。','weakling','repeat'],
+['錬金術師','取得時、最小値を全て消し、消した合計を基礎攻撃力へ加算する。','alchemist','repeat'],
+['反転','取得時、盤面の最大値と最小値を入れ替える。','reversal','repeat'],
+['暴食','取得時、最大のタイルを1つ消し、その値の1.2倍を基礎攻撃力へ加える。','gluttony','repeat'],
+['死神','敵HPが半分、敵の攻撃力を2倍になる。','reaper','repeat'],
+['爆弾','取得時、最大のタイルだけ残して消滅。消した分の合計の2倍を基礎攻撃力に加算する。','bomb','repeat'],
+['勇者','被ダメージ1.5倍。毎ターンコンボ倍率+0.02。','hero','card'],
+['洗浄','最小タイルをランダムで2つ破壊し、破壊した数字の合計をコンボ数に追加する。','cleanse','repeat'],
+['再生','Lv1で毎ターン2回復。Lvごとに回復量2倍。','regen','level'],
+['生命力強化','取得ごとに最大HP2倍。','maxHp','level'],
+['コンボ延長','Lvごとにコンボ受付時間大幅増加','comboTime','level'],
+['基礎強化','現在の基礎攻撃力を1.2倍。','baseUp','level'],
+['コンボ強化','コンボ倍率の上昇量+0.05。','comboUp','level']
+];
+
+function $(x){return document.getElementById(x)}
+function level(id){return typeof skills[id]==='number'?skills[id]:(skills[id]?1:0)}
+function owned(id){return level(id)>0}
+function empty(){return Array(16).fill(0)}
+
+function spawnCandidates(){
+  let a=[...new Set(board.filter(Boolean))].filter(x=>x>minSpawnValue);
+  if(skills.chaos&&a.length)return a;
+  let normal=[2,2,2,2,2,2,2,2,2,4].filter(x=>x>minSpawnValue);
+  if(normal.length)return normal;
+  if(skills.ouroboros&&minSpawnValue>0)return [minSpawnValue*2];
+  return normal
+}
+
+function spawnTileAt(i){
+  if(i<0||i>=16||board[i])return false;
+  let c=spawnCandidates();
+  if(!c.length)return false;
+  let v=c[Math.floor(Math.random()*c.length)];
+  if(skills.extraction)v*=4;
+  if(v<=minSpawnValue)return false;
+  board[i]=v;
+  turnNewTiles.push({i,v});
+  return true
+}
+
+function addRandom(){
+  let chaos=!!skills.chaos;
+  let n=chaos?2:1;
+  for(let z=0;z<n;z++){
+    spawnCount++;
+    if(!chaos&&skills.extraction&&spawnCount%2===0)continue;
+    let e=board.map((v,i)=>v?-1:i).filter(i=>i>=0);
+    if(!e.length)continue;
+    let i=e[Math.floor(Math.random()*e.length)];
+    spawnTileAt(i)
+  }
+}
+
+function addMummyMergeTile(){
+  let e=board.map((v,i)=>v?-1:i).filter(i=>i>=0);
+  if(!e.length)return false;
+  let normal=[2,2,2,2,2,2,2,2,2,4].filter(x=>x>minSpawnValue);
+  if(!normal.length)return false;
+  let v=normal[Math.floor(Math.random()*normal.length)];
+  if(skills.extraction)v*=4;
+  if(v<=minSpawnValue)return false;
+  let i=e[Math.floor(Math.random()*e.length)];
+  board[i]=v;
+  turnNewTiles.push({i,v,mummy:true});
+  return true
+}
+
+function spawnMummyMinTile(){
+  let vals=board.filter(Boolean),e=board.map((v,i)=>v?-1:i).filter(i=>i>=0);
+  if(!vals.length||!e.length)return false;
+  let v=Math.min(...vals);
+  if(v<=minSpawnValue)return false;
+  let i=e[Math.floor(Math.random()*e.length)];
+  board[i]=v;
+  turnNewTiles.push({i,v,mummy:true,noExtraction:true});
+  return true
+}
+
+function removeRandom(){
+  let e=board.map((v,i)=>v?i:-1).filter(i=>i>=0);
+  if(e.length)board[e[Math.floor(Math.random()*e.length)]]=0
+}
+
+function ensureBoardNotEmpty(){
+  if(board.some(v=>v))return false;
+  let i=Math.floor(Math.random()*16);
+  if(!spawnTileAt(i)){
+    let fallback=minSpawnValue>0?minSpawnValue*2:2;
+    board[i]=fallback;
+    turnNewTiles.push({i,v:fallback})
+  }
+  return true
+}
+
+function processEmperor(){
+  if(!skills.emperor)return 0;
+  let vals=board.filter(Boolean),mx=vals.length?Math.max(...vals):0;
+  if(mx>previousMax){
+    baseAttack+=mx;
+    emperorBonus+=mx;
+    previousMax=mx;
+    return mx
+  }
+  return 0
+}
+
+function recordRaised(before){
+  for(let i=0;i<16;i++){
+    let b=before[i]||0,v=board[i]||0;
+    if(v>b)turnNewTiles.push({i,v,raised:true})
+  }
+}
+
+function triggerGreed(){
+  if(!skills.greed)return 0;
+  let removed=0,removedValues=[],seen=new Set();
+  for(let x of turnNewTiles){
+    if(seen.has(x.i))continue;
+    let v=board[x.i]||0;
+    if(!x.greedSafe&&x.v>greedRecord&&v>greedRecord){
+      board[x.i]=0;
+      removed++;
+      removedValues.push(v);
+      seen.add(x.i)
+    }
+  }
+  if(removed){
+    greedMultiplier*=Math.pow(1.1,removed);
+    let uro=false;
+    if(skills.ouroboros&&!greedUroborosUsed){
+      let direct=Math.floor((removedValues[0]||0)/8);
+      if(direct>minSpawnValue){
+        let e=board.map((v,i)=>v?-1:i).filter(i=>i>=0);
+        if(e.length){
+          let i=e[Math.floor(Math.random()*e.length)];
+          board[i]=direct;
+          turnNewTiles.push({i,v:direct,greedSafe:true});
+          uro=true;
+          greedUroborosUsed=true
+        }
+      }
+    }
+    setLog(`強欲！基準値${fmt(greedRecord)}を超えた増加タイルを${removed}個消去、コンボ倍率×${Math.pow(1.1,removed).toFixed(2)}${uro?'、ウロボロスで1/8を出現！':''}`,`Greed! Removed ${removed} boosted tile${removed===1?'':'s'} above threshold ${fmt(greedRecord)}. Combo ×${Math.pow(1.1,removed).toFixed(2)}${uro?' Ouroboros spawned 1/8!':''}`);
+    render()
+  }
+  return removed
+}
+
+function spawnEnemy(){
+  let t=enemies[(floor-1)%enemies.length],
+      hp=floor===1?400:Math.round(enemy.maxHp*(floor>100?floor/50:1.4)),
+      atk=2;
+
+  if(skills.backwater)playerHp=Math.max(0,maxHp/2);
+
+  for(let f=2;f<=floor;f++){
+    if(f%10===1)atk=Math.round(atk*1.5);
+    if(f%50===0)atk*=f/5;
+    else atk+=1
+  }
+
+  enemy={name:t.name,hp,maxHp:hp,atk,type:t.type,desc:t.desc};
+
+  if(skills.reaper)enemy.atk*=Math.pow(2,level('reaper'));
+
+  enemyTurn=0;
+  enemyCharge=false
+}
+
+function fmt(n){
+  n=Math.max(0,Math.round(n));
+  if(n<=8192)return String(n);
+  // Large-number units: K, M, G, T, P, E, Z, Y
+  const units=[
+    ['Y',1e24],['Z',1e21],['E',1e18],['P',1e15],
+    ['T',1e12],['G',1e9],['M',1e6],['K',1e3]
+  ];
+  for(const [u,v] of units){
+    if(n>=v)return Math.floor(n/v)+u;
+  }
+  return String(n);
+}
+
+function fmtDamage(n){return Math.max(0,Math.round(n)).toLocaleString('en-US')}
+
+function render(){
+  let b=$('board');
+  b.innerHTML='';
+  board.forEach((v,i)=>{
+    let d=document.createElement('div');
+    d.className='tile '+(v?'t'+v:'')+(i===mageTarget?' mageTarget':'')+(i===hunterTarget?' hunterTarget':'');
+    d.textContent=v?fmt(v):'';
+    if(i===hunterTarget&&hunterTarget>=0){
+      let turns=Math.max(1,6-(enemyTurn%6));
+      let badge=document.createElement('span');
+      badge.className='hunterTimer';
+      badge.textContent=String(turns);
+      d.appendChild(badge);
+    }
+    b.appendChild(d)
+  });
+
+  $('floor').textContent=floor;
+  $('atk').textContent=fmt(baseAttack);
+  $('score').textContent=fmt(score);
+  $('enemyName').textContent=enemyDisplayName(enemy.name);
+  $('enemyText').textContent=`${fmt(enemy.hp)} / ${fmt(enemy.maxHp)}`;
+  $('enemyHp').style.width=Math.max(0,enemy.hp/enemy.maxHp*100)+'%';
+  $('playerHp').textContent=`${fmt(playerHp)} / ${fmt(maxHp)}`;
+  $('playerHpFill').style.width=Math.max(0,playerHp/maxHp*100)+'%';
+  updateComboDisplay();
+  renderSkills();
+  refreshTimer();
+}
+
+function renderSkills(){
+  let box=$('skillList');
+  box.innerHTML='';
+  let arr=defs.filter(x=>owned(x[2]));
+  if(!arr.length){
+    box.innerHTML=`<span style="color:#777;font-size:11px">${currentLang==='en'?LANG.ui.none:'なし'}</span>`;
+    return
+  }
+  arr.forEach(x=>{
+    let d=document.createElement('span');
+    d.className='badge '+(x[3]==='level'?'blue':x[3]==='repeat'?'green':'gold');
+    d.textContent=skillName(x[0])+(x[3]==='level'?` Lv${level(x[2])}`:'');
+    d.title=skillDesc(x[0]);
+    box.appendChild(d)
+  })
+}
+
+function timeLimit(){
+  let t=1900+skills.comboTime*150-Math.max(0,combo-1)*240-skills.dependence*10-skills.gambler*30;
+  if(skills.magician)t*=.4;
+  t+=embryoTimeBonus;
+  return Math.max(0.01,t)
+}
+
+function mult(){
+  let m=(1+Math.max(0,combo-1)*(.08+skills.comboUp*.05)+heroBonus)*greedMultiplier;
+  if(skills.magician)m*=2;
+  return m
+}
+
+function updateComboDisplay(){
+  $('combo').textContent=combo;
+  $('mult').textContent='×'+mult().toFixed(2)
+}
+
+function refreshTimer(){
+  let r=0;
+
+  if(combo){
+    if(paused&&freezeStarted){
+      r=frozenRemaining;
+    }else if(!canMove&&freezeStarted){
+      r=frozenRemaining;
+    }else if(deadline){
+      r=Math.max(0,deadline-Date.now());
+    }
+  }
+
+  $('timer').textContent=combo&&deadline?(r/1000).toFixed(1)+'s':'-';
+  $('comboFill').style.width=combo?Math.max(0,r/timeLimit()*100)+'%':'0%'
+}
+
+function startTimer(){
+  clearInterval(timerId);
+
+  if(!combo){
+    refreshTimer();
+    return
+  }
+
+  timerId=setInterval(()=>{
+    if(paused||!canMove){
+      refreshTimer();
+      return
+    }
+
+    if(!deadline){
+      deadline=Date.now()+timeLimit()
+    }
+
+    if(Date.now()>=deadline){
+      let oldCombo=combo;
+      combo=Math.max(0,combo-1);
+
+      if(combo){
+        deadline=Date.now()+timeLimit()
+      }else{
+        deadline=0
+      }
+
+      if(combo!==oldCombo){
+        updateComboDisplay();
+        if(combo)comboVisual(combo)
+      }
+
+      if(!combo){
+        clearInterval(timerId);
+        timerId=null
+      }
+    }
+
+    refreshTimer()
+  },50)
+}
+
+function slide(a,rev){
+  let x=rev?[...a].reverse():[...a],c=x.filter(Boolean),r=[],g=[],m=[];
+  for(let i=0;i<c.length;i++){
+    if(i+1<c.length&&c[i]===c[i+1]){
+      r.push(c[i]*2);
+      g.push(c[i]*2);
+      m.push(r.length-1);
+      i++
+    }else r.push(c[i])
+  }
+  while(r.length<4)r.push(0);
+  if(rev)m=m.map(i=>3-i);
+  return {v:rev?r.reverse():r,g,m}
+}
+
+function ensureAudio(){
+  try{
+    if(!audioCtx||audioCtx.state==='closed'){
+      let C=window.AudioContext||window.webkitAudioContext;
+      if(!C)return null;
+      audioCtx=new C()
+    }
+    if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});
+    return audioCtx
+  }catch(e){return null}
+}
+
+function unlockAudio(){
+  let a=ensureAudio();
+  if(a&&a.state==='suspended')a.resume().catch(()=>{});
+  if(a){
+    try{
+      let g=a.createGain();
+      g.gain.value=0;
+      g.connect(a.destination);
+      let o=a.createOscillator();
+      o.frequency.value=1;
+      o.connect(g);
+      o.start();
+      o.stop(a.currentTime+.01)
+    }catch(e){}
+  }
+}
+
+function tone(freq,dur=.08,type='sine',gain=.035){
+  let a=ensureAudio();
+  if(!a)return;
+  if(a.state==='suspended'){
+    a.resume().then(()=>tone(freq,dur,type,gain)).catch(()=>{});
+    return
+  }
+  try{
+    let o=a.createOscillator(),g=a.createGain(),now=a.currentTime;
+    o.type=type;
+    o.frequency.setValueAtTime(freq,now);
+    g.gain.setValueAtTime(gain,now);
+    g.gain.exponentialRampToValueAtTime(.001,now+dur);
+    o.connect(g);
+    g.connect(a.destination);
+    o.start(now);
+    o.stop(now+dur)
+  }catch(e){}
+}
+
+function playComboSound(c){
+  let a=ensureAudio();
+  if(!a)return;
+  if(c>=20){
+    let seq=[523,659,784,1047,1319];
+    seq.forEach((f,i)=>setTimeout(()=>tone(f,.11,i%2?'sine':'triangle',.042),i*65));
+    setTimeout(()=>tone(1568,.18,'sine',.032),330);
+    return
+  }
+  let n=Math.max(1,Math.min(20,c)),f1=280+(n-1)*24,f2=f1+95,f3=f2+115;
+  tone(f1,.075,'triangle',.042);
+  setTimeout(()=>tone(f2,.085,'sine',.032),48);
+  if(n>=4)setTimeout(()=>tone(f3,.10,'triangle',.028),96)
+}
+
+function playHitSound(){ensureAudio();tone(150,.08,'sawtooth',.04);setTimeout(()=>tone(90,.12,'square',.025),35)}
+function playEnemyDefeatSound(){
+  let a=ensureAudio();
+  if(!a)return;
+  tone(220,.10,'sawtooth',.025);
+  setTimeout(()=>tone(330,.10,'triangle',.035),55);
+  setTimeout(()=>tone(440,.12,'triangle',.042),115);
+  setTimeout(()=>tone(660,.15,'sine',.048),185);
+  setTimeout(()=>tone(880,.20,'sine',.052),260);
+  setTimeout(()=>tone(1320,.28,'triangle',.035),345);
+  setTimeout(()=>tone(1760,.20,'sine',.022),430);
+}
+function playPlayerHitSound(){ensureAudio();tone(100,.12,'sawtooth',.045);setTimeout(()=>tone(65,.15,'square',.03),50)}
+
+function comboVisual(c){
+  let p=document.querySelector('.comboBar');
+  if(!p)return;
+  p.classList.remove('comboBarShake');
+  void p.offsetWidth;
+  p.classList.add('comboBarShake')
+}
+
+function bubble(n,type='enemy'){
+  let p=type==='player'?$('playerDamageStage'):$('damageStage'),d=document.createElement('div');
+  d.className='dmg '+(type==='player'?'pdmg':'');
+  d.textContent='-'+fmtDamage(n);
+  p.appendChild(d);
+  setTimeout(()=>d.remove(),1100)
+}
+
+function shake(){
+  let p=document.querySelector('.wrap');
+  if(!p)return;
+  p.classList.remove('shake');
+  void p.offsetWidth;
+  p.classList.add('shake');
+  setTimeout(()=>p.classList.remove('shake'),240)
+}
+
+function enemyDefeatVisual(){
+  let p=document.querySelector('.enemy');
+  if(p){
+    p.classList.remove('enemyDefeatFlash');
+    void p.offsetWidth;
+    p.classList.add('enemyDefeatFlash');
+    setTimeout(()=>p.classList.remove('enemyDefeatFlash'),700);
+  }
+
+  let shell=document.querySelector('.boardShell');
+  if(shell){
+    shell.classList.remove('enemyDefeatBoardFlash');
+    void shell.offsetWidth;
+    shell.classList.add('enemyDefeatBoardFlash');
+
+    for(let i=0;i<18;i++){
+      let q=document.createElement('span');
+      q.className='defeatParticle';
+      q.style.setProperty('--angle',`${i*20 + Math.random()*10}deg`);
+      q.style.setProperty('--distance',`${90 + Math.random()*130}px`);
+      q.style.animationDelay=`${Math.random()*70}ms`;
+      shell.appendChild(q);
+      setTimeout(()=>q.remove(),850);
+    }
+
+    setTimeout(()=>shell.classList.remove('enemyDefeatBoardFlash'),800);
+  }
+
+  shake()
+}
+
+function move(dir){
+  if(!canMove||paused)return;
+  ensureAudio();
+
+  let before=board.slice(),g=[];
+  turnNewTiles=[];
+
+  for(let l=0;l<4;l++){
+    let idx=[];
+    for(let k=0;k<4;k++)idx.push((dir==='left'||dir==='right')?l*4+k:k*4+l);
+    let r=slide(idx.map(i=>board[i]),dir==='right'||dir==='down');
+    idx.forEach((i,k)=>board[i]=r.v[k]);
+    r.m.forEach(k=>{if(r.v[k])turnNewTiles.push({i:idx[k],v:r.v[k]})});
+    g.push(...r.g)
+  }
+
+  if(board.every((v,i)=>v===before[i]))return;
+  recordRaised(before);
+
+  if(mageTarget>=0){
+    let i=mageTarget;
+    if(board[i]!==0){
+      let next=Math.floor(board[i]/2);
+      if(next>=2&&next>minSpawnValue){
+        board[i]=next;
+        setLog('魔術師が指定したマスを半分にした！','The Mage halved the selected tile!')
+      }else{
+        setLog('魔術師の攻撃は無効になった！','The Mage’s attack was nullified!')
+      }
+      mageTarget=-1
+    }else mageTarget=-1
+  }
+
+  previousMax=Math.max(...before);
+
+  if(skills.chaos)removeRandom();
+
+  if(g.length){
+    if(skills.embryo)embryoTimeBonus+=50;
+    combo+=skills.embryo?g.length:1;
+    deadline=Date.now()+timeLimit();
+    frozenRemaining=0;
+    startTimer();
+    playComboSound(combo);
+    comboVisual(combo);
+
+    if(skills.dependence&&combo>=2)baseAttack+=6;
+    processEmperor();
+
+    let sum=board.reduce((a,v)=>a+v,0),
+        h=skills.hunger?board.filter(v=>v===0).length*.25:1,
+        damage=Math.floor(baseAttack*sum*mult()*h);
+
+    if(enemy.type==='golem'){
+      let cut=Math.min(1,1.2/Math.max(1,combo));
+      damage=Math.floor(damage*(1-cut))
+    }
+
+    if(skills.overreaction&&g.some(v=>v>=previousMax))damage*=3;
+    if(skills.mummy)damage*=2;
+    if(skills.berserker&&playerHp<=maxHp*.75)damage*=2;
+    if(skills.backwater)damage*=maxHp/Math.max(1,playerHp)/2;
+
+    if(skills.gambler){
+      let p=Math.min(.95,.5+Math.max(0,combo-1)*.05);
+      damage*=Math.random()<p?2:.5
+    }
+
+    damage=Math.max(0,Math.round(damage));
+
+    let attacks=g.length+(skills.chainCannon&&g.length>=3?1:0)+(skills.chainCannon&&g.length>=5?1:0);
+
+    for(let i=0;i<attacks;i++){
+      enemy.hp-=damage;
+      score+=damage;
+      if(enemy.hp<=0)break
+    }
+
+    bubble(damage);
+    playHitSound();
+    triggerGreed();
+    setLog(`合体攻撃！ ${fmtDamage(damage)}ダメージ ×${attacks}回 / ${combo}コンボ`,`Merge attack! ${fmtDamage(damage)} damage ×${attacks} attacks / ${combo} Combo`)
+  }else{
+    if(skills.accumulation)baseAttack*=1.01;
+    setLog('スライド！','Slide!')
+  }
+
+  if(!skills.mummy){
+    addRandom()
+  }else if(g.length){
+    for(let z=0;z<g.length;z++)addMummyMergeTile()
+  }else{
+    spawnMummyMinTile()
+  }
+
+  processEmperor();
+
+  if(!g.length)triggerGreed();
+
+  if(ensureBoardNotEmpty()){
+    processEmperor();
+    setLog('盤面が空になったため、通常の出現ルールで数字を配置！','The board was cleared, so tiles were spawned using the normal rules!')
+  }
+
+  if(!board.every(v=>v===0)&&!canMoves()){
+    render();
+    gameOver();
+    return
+  }
+
+  if(enemy.hp<=0){
+    canMove=false;
+    if(combo&&deadline&&!freezeStarted){freezeStarted=Date.now();frozenRemaining=Math.max(0,deadline-Date.now())};
+    render();
+    playEnemyDefeatSound();
+    enemyDefeatVisual();
+    setTimeout(()=>win(),420);
+    return
+  }
+
+  enemyAttack();
+
+  if(skills.hero)heroBonus+=.02;
+
+  if(skills.blessing){
+    let loss=Math.max(1,Math.floor(maxHp/16));
+    playerHp=Math.max(0,playerHp-loss);
+    baseAttack*=1.02
+  }
+
+  if(isDead())gameOver();
+  render()
+}
+
+function enemyAttack(){
+  enemyTurn++;
+  let action='';
+
+  if(enemy.type==='slime'&&enemyTurn%3===0){
+    let heal=Math.max(1,Math.floor(enemy.maxHp*.01));
+    enemy.hp=Math.min(enemy.maxHp,enemy.hp+heal);
+    let e=board.map((v,i)=>v?-1:i).filter(i=>i>=0);
+
+    if(e.length){
+      let splitValue=Math.min(...board.filter(Boolean));
+      if(splitValue>minSpawnValue){
+        let i=e[Math.floor(Math.random()*e.length)];
+        board[i]=splitValue;
+        turnNewTiles.push({i,v:splitValue})
+      }
+      action=currentLang==='en'?`The Slime split! HP +${fmt(heal)}`:`スライムが分裂！HP+${fmt(heal)}`
+    }
+  }
+
+  if(enemy.type==='ogre'&&enemyTurn%3===0){
+    enemyCharge=true;
+    action=currentLang==='en'?'The Ogre is charging power!':'オーガが力を溜めている！'
+  }
+
+  let d=Math.max(1,Math.round(enemy.atk*(0.8+Math.random()*0.2)));
+
+  if(enemy.type==='ogre'&&enemyCharge&&enemyTurn%3!==0){
+    d*=2;
+    enemyCharge=false;
+    action=currentLang==='en'?'The Ogre delivers a powerful strike!':'オーガの強烈な一撃！'
+  }
+
+  if(enemy.type==='mage'&&enemyTurn%2===0){
+    let ids=board.map((v,i)=>v?i:-1).filter(i=>i>=0),vals=board.filter(Boolean);
+    if(ids.length&&vals.length>1){
+      mageTarget=ids[Math.floor(Math.random()*ids.length)];
+      action=currentLang==='en'?'The Mage selected a tile to halve!':'魔術師が半分にするマスを指定した！'
+    }
+  }
+
+  if(enemy.type==='hunter'&&enemyTurn%6===1){
+    let vals=board.filter(Boolean);
+    if(vals.length){
+      hunterTargetValue=Math.max(...vals);
+      hunterTarget=board.indexOf(hunterTargetValue);
+      action=currentLang==='en'?'The Hunter is taking aim!':'ハンターが狙いを定めた！'
+    }
+  }
+
+  if(enemy.type==='hunter'&&enemyTurn%6===0){
+    let i=hunterTarget;
+    if(i>=0&&board[i]===hunterTargetValue){
+      let mx=board[i],next=Math.floor(mx/4);
+      if(next>=2&&next>minSpawnValue){
+        board[i]=next;
+        action=currentLang==='en'?`The Hunter quartered the maximum tile (${mx})!`:`ハンターが最大値 ${mx} を4分の1にした！`
+      }else{
+        action=currentLang==='en'?'The Hunter’s attack was nullified!':'ハンターの攻撃は無効になった！'
+      }
+    }else if(i>=0){
+      action=currentLang==='en'?'The Hunter missed!':'ハンターの狙いが外れた！'
+    }
+    hunterTarget=-1;
+    hunterTargetValue=0
+  }
+
+  if(triggerGreed()&&board.every(v=>v===0))ensureBoardNotEmpty();
+
+  if(skills.colored)d=Math.ceil(maxHp/2);
+  if(skills.hero)d=Math.ceil(d*1.5);
+
+  playerHp=Math.max(0,playerHp-d);
+
+  if(d){
+    bubble(d,'player');
+    playPlayerHitSound();
+    shake();
+    if(skills.grudge)baseAttack*=1.01;
+    setLog((action?action+' ':'')+`敵の攻撃！ ${fmtDamage(d)}ダメージ`,(action?action+' ':'')+`Enemy attack! ${fmtDamage(d)} damage`)
+  }
+
+  if(playerHp<=0&&skills.sacrifice){
+    let v=board.filter(Boolean);
+    if(v.length>=3){
+      let m=Math.max(...v),i=board.indexOf(m);
+      board[i]=0;
+      playerHp=Math.min(maxHp,m);
+      setLog(`生贄！ ${fmt(m)}を犠牲に復活！`,`Sacrifice! Revived by sacrificing ${fmt(m)}.`)
+    }
+  }
+
+  if(playerHp<=0){
+    gameOver();
+    return;
+  }
+
+  if(skills.regen){
+    let h=2*Math.pow(2,skills.regen-1);
+    playerHp=Math.min(maxHp,playerHp+h)
+  }
+
+  if(action&&!d)$('log').textContent=action
+}
+
+function win(){
+  mageTarget=-1;
+  hunterTarget=-1;
+  hunterTargetValue=0;
+
+  if(skills.multiplication){
+    const currentValues=board.filter(Boolean);
+    const spawnMin=currentValues.length?Math.min(...currentValues):0;
+    let e=board.map((x,i)=>x?-1:i).filter(i=>i>=0);
+
+    if(spawnMin>minSpawnValue&&e.length){
+      let n=Math.min(3,e.length);
+
+      for(let z=0;z<n;z++){
+        let k=Math.floor(Math.random()*e.length),i=e.splice(k,1)[0];
+        board[i]=spawnMin;
+        turnNewTiles.push({i,v:spawnMin})
+      }
+    }
+  }
+
+  if(!board.every(v=>v===0)&&!canMoves()){
+    render();
+    gameOver();
+    return
+  }
+
+  if(triggerGreed()&&board.every(v=>v===0))ensureBoardNotEmpty();
+
+  if(!board.every(v=>v===0)&&!canMoves()){
+    render();
+    gameOver();
+    return
+  }
+
+  score+=enemy.maxHp;
+  floor++;
+  playerHp=maxHp;
+  skills.chaos=false;
+  spawnEnemy();
+
+  canMove=false;
+
+  // スキル選択画面に入った瞬間の残り時間を保存して凍結
+  if(!freezeStarted){
+    freezeStarted=Date.now();
+    frozenRemaining=combo&&deadline?Math.max(0,deadline-Date.now()):0;
+  }
+
+  render();
+
+  if(!paused){
+    showUpgrade()
+  }
+}
+
+function isDead(){return playerHp<=0||(!board.every(v=>v===0)&&!canMoves())}
+
+function canMoves(){
+  if(board.some(v=>!v))return true;
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    let i=r*4+c;
+    if(c<3&&board[i]===board[i+1]||r<3&&board[i]===board[i+4])return true
+  }
+  return false
+}
+
+function gameOver(){
+  $('final').textContent=currentLang==='en'?`Floor Reached: ${floor}　Score: ${score}`:`到達フロア: ${floor}　スコア: ${score}`;
+  $('gameover').style.display='flex';
+  canMove=false;
+  clearInterval(timerId);
+  timerId=null
+}
+
+function apply(id){
+  let s=defs.find(x=>x[2]===id);
+  if(!s)return;
+
+  let beforeApply=board.slice();
+
+  if(s[3]==='repeat'||s[3]==='level'){
+    skills[id]=(typeof skills[id]==='number'?skills[id]:0)+1
+  }else{
+    skills[id]=true
+  }
+
+  if(id==='extraction'){
+    if(skills.greed&&Number.isFinite(greedRecord)&&greedRecord>0)greedRecord*=4
+  }
+
+  if(id==='emperor'){
+    let v=board.filter(Boolean),mx=v.length?Math.max(...v):0;
+    baseAttack+=mx;
+    emperorBonus+=mx;
+    previousMax=mx
+  }
+
+  if(id==='greed'){
+    let v=board.filter(Boolean);
+    greedRecord=v.length?Math.max(...v):0;
+    greedUroborosUsed=false
+  }
+
+  if(id==='maxHp'){
+    maxHp*=2;
+    levelMaxHpFactor*=2;
+    playerHp+=maxHp/2
+  }
+
+  if(id==='weakling'){
+    let newMaxHp=Math.max(1,Math.floor(maxHp/2)),loss=maxHp-newMaxHp;
+    maxHp=newMaxHp;
+    playerHp=Math.min(playerHp,maxHp);
+    baseAttack+=loss
+  }
+
+  if(id==='ouroboros'){
+    let v=board.filter(Boolean);
+    if(v.length){
+      let mn=Math.min(...v),mx=Math.max(...v);
+      minSpawnValue=Math.max(minSpawnValue,mn);
+      board=board.map(x=>(x===mn||x===mx)?0:x)
+    }
+  }
+
+  if(id==='mushroom'){
+    let v=board.filter(Boolean);
+    if(v.length){
+      let mn=Math.min(...v);
+      board=board.map(x=>x===mn?x*2:x)
+    }
+  }
+
+  if(id==='devil'){
+    board=board.map(x=>x?x*2:0);
+    let levelSkills=defs.filter(x=>x[3]==='level'&&level(x[2])>0);
+
+    if(levelSkills.length){
+      let target=levelSkills[Math.floor(Math.random()*levelSkills.length)][2],oldLv=level(target);
+
+      if(target==='maxHp'){
+        maxHp=Math.max(1,maxHp/Math.pow(2,oldLv));
+        playerHp=Math.min(playerHp,maxHp);
+        levelMaxHpFactor=1
+      }else if(target==='baseUp'){
+        baseAttack/=Math.pow(1.2,oldLv);
+        levelBaseUpFactor=1
+      }
+
+      skills[target]=0;
+      setLog(`悪魔の契約！盤面を2倍にし、${defs.find(x=>x[2]===target)[0]}をLv0にした！`,`Devil’s Contract! Doubled the board and reduced ${skillName(defs.find(x=>x[2]===target)[0])} to Lv0.`)
+    }
+  }
+
+  if(id==='lust'){
+    let ids=board.map((x,i)=>x?i:-1).filter(i=>i>=0);
+
+    for(let z=0;z<Math.min(3,ids.length);z++){
+      let k=Math.floor(Math.random()*ids.length),i=ids.splice(k,1)[0];
+      board[i]*=2
+    }
+
+    let all=board.map((x,i)=>x?i:-1).filter(i=>i>=0);
+    if(all.length){
+      let i=all[Math.floor(Math.random()*all.length)];
+      board[i]=0
+    }
+  }
+
+  if(id==='alchemist'){
+    let v=board.filter(Boolean);
+    if(v.length){
+      let mn=Math.min(...v),sum=0;
+      board=board.map(x=>x===mn?(sum+=x,0):x);
+      baseAttack+=sum
+    }
+  }
+
+  if(id==='reversal'){
+    let v=board.filter(Boolean);
+    if(v.length){
+      let mn=Math.min(...v),mx=Math.max(...v);
+      board=board.map(x=>x===mn?mx:x===mx?mn:x)
+    }
+  }
+
+  if(id==='gluttony'){
+    let v=board.filter(Boolean);
+    if(v.length){
+      let mx=Math.max(...v),i=board.indexOf(mx);
+      board[i]=0;
+      baseAttack+=mx*1.2
+    }
+  }
+
+  if(id==='reaper'){
+    enemy.hp=Math.max(1,Math.floor(enemy.hp/2));
+    enemy.atk*=2
+  }
+
+  if(id==='cleanse'){
+    let vals=board.filter(Boolean);
+    if(vals.length){
+      let mn=Math.min(...vals),ids=board.map((x,i)=>x===mn?i:-1).filter(i=>i>=0),n=Math.min(2,ids.length),sum=0;
+
+      for(let z=0;z<n;z++){
+        let k=Math.floor(Math.random()*ids.length),i=ids.splice(k,1)[0];
+        sum+=board[i];
+        board[i]=0
+      }
+
+      combo+=sum;
+      deadline=Date.now()+timeLimit();
+      frozenRemaining=0;
+      startTimer();
+      setLog(`洗浄！最小タイルを${n}個破壊、コンボ+${sum}`,`Cleanse! Destroyed ${n} minimum-value tile${n===1?'':'s'}, Combo +${sum}`)
+    }
+  }
+
+  if(id==='bomb'){
+    let v=board.filter(Boolean);
+
+    if(v.length&&new Set(v).size>1){
+      let mx=Math.max(...v),sum=0,kept=false;
+      board=board.map(x=>{
+        if(x===mx&&!kept){
+          kept=true;
+          return x
+        }
+        if(x)sum+=x;
+        return 0
+      });
+      baseAttack+=sum*2
+    }
+  }
+
+  if(id==='baseUp'){
+    baseAttack*=1.2;
+    levelBaseUpFactor*=1.2
+  }
+
+  if(id==='blessing'){
+    let loss=Math.max(1,Math.floor(maxHp/16));
+    playerHp=Math.max(0,playerHp-loss);
+    baseAttack*=1.02
+  }
+
+  recordRaised(beforeApply);
+  processEmperor();
+
+  if(id!=='greed')triggerGreed();
+
+  if(!board.some(v=>v))ensureBoardNotEmpty()
+}
+
+function available(){
+  return defs.filter(x=>{
+    if(floor%2===1&&x[3]==='level')return false;
+    if(floor%2===0&&x[3]!=='level')return false;
+    if(x[3]==='card'&&owned(x[2]))return false;
+    return true
+  })
+}
+
+function showUpgrade(){
+  // スキル選択中はゲームを停止したままにする
+  paused=false;
+  canMove=false;
+  $('pauseBtn').textContent=currentLang==='en'?'⏸ Pause':'⏸ 一時停止';
+  $('floorRule').textContent=currentLang==='en'?(floor%2===1?LANG.ui.odd:LANG.ui.even):(floor%2===1?'奇数フロア：カード＋何回でも取得可能':'偶数フロア：レベルアップスキルのみ');
+
+  let box=$('choices');
+  box.innerHTML='';
+
+  available().sort(()=>Math.random()-.5).slice(0,3).forEach(s=>{
+    let b=document.createElement('button');
+    b.className='choice '+(s[3]==='level'?'blueChoice':s[3]==='repeat'?'greenChoice':'goldChoice');
+    let countText=s[3]==='level'?` Lv${level(s[2])+1}`:s[3]==='repeat'?` ×${level(s[2])+1}`:'';
+    b.dataset.skill=s[0]; b.innerHTML=`<b>${skillName(s[0])}${countText}</b><small>${skillDesc(s[0])}</small>`;
+    b.onclick=()=>choose(s);
+    box.appendChild(b)
+  });
+
+  if(floor%2===1){
+    let skip=document.createElement('button');
+    skip.className='primary';
+    skip.textContent=currentLang==='en'?LANG.ui.skip:'いらない';
+    skip.onclick=skipSkill;
+    box.appendChild(skip)
+  }
+
+  $('upgrade').style.display='flex'
+}
+
+function choose(s){
+  if(s[3]==='card'&&defs.filter(x=>x[3]==='card'&&owned(x[2])).length>=5){
+    let box=$('discardChoices');
+    box.innerHTML='';
+
+    defs.filter(x=>x[3]==='card'&&owned(x[2])).forEach(d=>{
+      let b=document.createElement('button');
+      b.className='choice goldChoice';
+      b.dataset.skill=d[0]; b.innerHTML=`<b>${skillName(d[0])}</b><small>${skillDesc(d[0])}</small>`;
+
+      b.onclick=()=>{
+        if(d[2]==='emperor')baseAttack-=emperorBonus,emperorBonus=0;
+        if(d[2]==='greed')greedRecord=0,greedMultiplier=1,greedUroborosUsed=false;
+        skills[d[2]]=false;
+        $('discard').style.display='none';
+        finishChoose(s)
+      };
+
+      box.appendChild(b)
+    });
+
+    $('discard').style.display='flex';
+    return
+  }
+
+  finishChoose(s)
+}
+
+function finishChoose(s){
+  apply(s[2]);
+
+  if(freezeStarted&&deadline)deadline+=Date.now()-freezeStarted;
+  freezeStarted=0;
+  frozenRemaining=0;
+
+  $('upgrade').style.display='none';
+  canMove=true;
+  render();
+  setLog(`${s[0]}を獲得！`,`${skillName(s[0])} acquired!`);
+
+  if(combo)startTimer()
+}
+
+function skipSkill(){
+  if(freezeStarted&&deadline)deadline+=Date.now()-freezeStarted;
+  freezeStarted=0;
+  frozenRemaining=0;
+
+  $('upgrade').style.display='none';
+  canMove=true;
+  render();
+  setLog('今回はスキルを取得しなかった！',LANG.ui.noSkill);
+
+  if(combo)startTimer()
+}
+
+$('discardBack').onclick=()=>{
+  $('discard').style.display='none';
+  $('upgrade').style.display='flex'
+};
+
+function togglePause(){
+  if(!canMove)return;
+
+  paused=!paused;
+
+  if(paused){
+    freezeStarted=Date.now();
+    frozenRemaining=combo&&deadline?Math.max(0,deadline-Date.now()):0;
+    $('pauseBtn').textContent=currentLang==='en'?'▶ Resume':'▶ 再開';
+    setLog('一時停止中','Paused');
+  }else{
+    if(freezeStarted&&deadline)deadline+=Date.now()-freezeStarted;
+    freezeStarted=0;
+    frozenRemaining=0;
+    $('pauseBtn').textContent='⏸ 一時停止';
+    setLog('ゲーム再開！','Game resumed!');
+    if(combo)startTimer()
+  }
+
+  render()
+}
+
+function start(){
+  unlockAudio();
+  ensureAudio();
+  canMove=true;
+  $('start').style.display='none';
+  setLog('ゲーム開始！','Game started!');
+  render();
+  if(combo)startTimer()
+}
+
+document.addEventListener('touchstart',unlockAudio,{passive:true,once:true});
+document.addEventListener('pointerdown',unlockAudio,{passive:true,once:true});
+
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){
+    e.preventDefault();
+    if(!e.repeat)togglePause();
+    return
+  }
+
+  let m={
+    ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',
+    w:'up',W:'up',s:'down',S:'down',a:'left',A:'left',d:'right',D:'right'
+  };
+
+  if(m[e.key]){
+    e.preventDefault();
+    move(m[e.key])
+  }
+});
+
+$('board').addEventListener('touchstart',e=>{
+  let t=e.touches[0];
+  touch={x:t.clientX,y:t.clientY}
+},{passive:true});
+
+$('board').addEventListener('touchend',e=>{
+  if(!touch)return;
+  let t=e.changedTouches[0],dx=t.clientX-touch.x,dy=t.clientY-touch.y;
+  touch=null;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;
+  move(Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up')
+},{passive:true});
+
+$('startBtn').onclick=start;
+$('restart').onclick=()=>location.reload();
+$('pauseBtn').onclick=togglePause;
+
+board=empty();
+addRandom();
+addRandom();
+spawnEnemy();
+render();
+$('start').style.display='flex';
+
+window.setLanguage=setLanguage;
+$('langBtn').onclick=()=>setLanguage(currentLang==='ja'?'en':'ja');
+setLanguage('ja');
+</script>
+</body>
+</html>
