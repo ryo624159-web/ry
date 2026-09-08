@@ -82,9 +82,10 @@
   transition:opacity .08s ease-out;
 }
 .gamblerFlash.show{opacity:1}
-.gamblerFlashWhite{background:rgba(255,255,255,.78)}
+.gamblerFlashWhite{background:rgba(255,255,255,.60)}
+.gamblerFlashDark{background:rgba(0,0,0,.60)}
 .gamblerFlashGold{
-  background:radial-gradient(circle,rgba(255,245,150,.9) 0%,rgba(255,215,50,.68) 38%,rgba(255,180,0,.32) 72%,rgba(255,170,0,0) 100%);
+  background:radial-gradient(circle,rgba(255,245,150,.6) 0%,rgba(255,215,50,.48) 38%,rgba(255,180,0,.24) 72%,rgba(255,170,0,0) 100%);
 }
 </style>
 <title>2048 ROGUELIKE - Skills</title>
@@ -810,7 +811,7 @@ function playGamblerJackpotSound(){
 
 function gamblerFlash(kind){
   let el=document.createElement('div');
-  el.className='gamblerFlash '+(kind==='gold'?'gamblerFlashGold':'gamblerFlashWhite');
+  el.className='gamblerFlash '+(kind==='gold'?'gamblerFlashGold':kind==='dark'?'gamblerFlashDark':'gamblerFlashWhite');
   document.body.appendChild(el);
   requestAnimationFrame(()=>el.classList.add('show'));
   setTimeout(()=>el.classList.remove('show'),170);
@@ -930,7 +931,6 @@ function move(dir){
     deadline=Date.now()+timeLimit();
     frozenRemaining=0;
     startTimer();
-    playComboSound(combo);
     comboVisual(combo);
 
     if(skills.dependence&&combo>=2)baseAttack+=6;
